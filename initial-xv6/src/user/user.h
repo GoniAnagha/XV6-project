@@ -40,3 +40,7 @@ void free(void*);
 int atoi(const char*);
 int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
+int settickets(int);
+int getSysCount(int mask);  // Function prototype for getSysCount
+int sigalarm(int ticks, void (*handler)(void));
+void sigreturn(void);

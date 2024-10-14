@@ -63,6 +63,15 @@ CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
 CFLAGS += -I.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
+ifeq ($(SCHEDULER), LBS)
+	SCHEDULER_FLAG = -DLBS
+else ifeq ($(SCHEDULER), MLFQ)
+    SCHEDULER_FLAG = -DMLFQ
+else
+    SCHEDULER_FLAG = -DRR
+endif
+
+CFLAGS += $(SCHEDULER_FLAG)
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
 CFLAGS += -fno-pie -no-pie
@@ -133,6 +142,8 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_schedulertest\
+	$U/_alarmtest\
+	$U/_syscount\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
@@ -171,4 +182,3 @@ qemu: $K/kernel fs.img
 qemu-gdb: $K/kernel .gdbinit fs.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
-

@@ -119,6 +119,41 @@ struct proc
   uint rtime;                  // How long the process ran for
   uint ctime;                  // When was the process created
   uint etime;                  // When did the process exited
+
+  //////////////////////
+  int tickets;                // Number of lottery tickets
+  int priority;               // Priority level for MLFQ
+  int ticks_used;             // Ticks used in the current priority level
+  int arrival_time;           // Arrival time for lottery scheduling
+
+  struct proc *next;  // Pointer for linked list in the queue
+  uint64 alarm_handler; // Pointer to the alarm handler
+  int alarm_interval;           // Interval for the alarm
+  int ticks;                   // Ticks counter
+  int alarm_state;             // State of the alarm (set/reset)
+  struct context saved_context; // For saving context before handler
+  struct trapframe *alarm_tf;
+  int handle_permission;
+  uint64 running_time;
+  int current_ticks;
+  /////////////////////
 };
 
+//////////////////
+#define NQUEUE 4
+#define UNUSED 0
+#define SLEEPING 1
+#define RUNNABLE 2
+#define RUNNING 3
+#define ZOMBIE 4
+#define BLOCKED 5
+/////////////////
+
 extern struct proc proc[NPROC];
+
+/////////////////////////
+// Function prototype for settickets
+int settickets(int number);
+extern int syscall_counts[32];
+
+//////////////////////////

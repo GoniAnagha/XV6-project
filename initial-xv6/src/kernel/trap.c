@@ -78,10 +78,38 @@ void usertrap(void)
   if (killed(p))
     exit(-1);
 
+  /////////////////////
+
   // give up the CPU if this is a timer interrupt.
-  if (which_dev == 2)
+  if (which_dev == 2 && p->alarm_state==1 && p->handle_permission==1)
+  {
+    struct trapframe* trap_f = kalloc();
+    memmove(trap_f, p->trapframe, PGSIZE);
+    p->alarm_tf = trap_f;
+    p->current_ticks++;
+    if(p->current_ticks % p->alarm_interval==0)
+    {
+      p->trapframe->epc = p->alarm_handler;
+      p->handle_permission=0;
+    }
+  }
+
+  if(which_dev==2)
+  {
+    if(p->state==RUNNING)
+    {
+      p->running_time++;
+    }
+  }
+
+  #if defined RR || defined MLFQ || defined LBS
+
+  if(which_dev==2)
     yield();
 
+  #endif
+  ////////////////////
+  
   usertrapret();
 }
 

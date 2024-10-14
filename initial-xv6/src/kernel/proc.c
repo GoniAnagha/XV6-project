@@ -6,6 +6,14 @@
 #include "proc.h"
 #include "defs.h"
 
+///////////////////////////////
+extern struct {
+    struct proc proc[NPROC];
+    struct spinlock lock;
+} ptable; 
+
+///////////////////////////////
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -25,6 +33,14 @@ extern char trampoline[]; // trampoline.S
 // memory model when using p->parent.
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
+
+////////////////////////
+uint random(void) {
+    static uint seed = 987654321; // Seed value
+    seed = (seed) % 0x7fffffff;
+    return seed;
+}
+///////////////////////////
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -152,6 +168,22 @@ found:
   p->rtime = 0;
   p->etime = 0;
   p->ctime = ticks;
+
+  ////////////////////////
+  p->tickets = 1;  // Default number of tickets
+  p->priority = 0; // Start at highest priority
+  p->ticks_used = 0; // Reset ticks used
+  p->arrival_time = ticks; // Record arrival time
+  for(int i=0; i<32;i++)
+  {
+    syscall_counts[i]=0;
+  }
+  p->running_time=0;
+  p->handle_permission=1;
+  p->alarm_state=0;
+  p->current_ticks=0;
+  ///////////////////////////
+
   return p;
 }
 
@@ -295,6 +327,12 @@ int fork(void)
   {
     return -1;
   }
+  
+  ////////////////
+  np->tickets = p->tickets; // Inherit tickets from parent
+  np->arrival_time = ticks; // Set arrival time
+  np->priority = 0; // Start in the highest priority queue for MLFQ
+  //////////////////
 
   // Copy user memory from parent to child.
   if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0)
@@ -457,36 +495,146 @@ int wait(uint64 addr)
 //  - choose a process to run.
 //  - swtch to start running that process.
 //  - eventually that process transfers control
-//    via swtch back to the scheduler.
-void scheduler(void)
-{
+//    via swtch back to the scheduler
+// In kernel/proc.c
+void scheduler(void) {
   struct proc *p;
   struct cpu *c = mycpu();
-
   c->proc = 0;
-  for (;;)
-  {
-    // Avoid deadlock by ensuring that devices can interrupt.
-    intr_on();
 
-    for (p = proc; p < &proc[NPROC]; p++)
-    {
+#ifdef LBS // Lottery Based Scheduling
+printf("lbs\n");
+   for (;;) {
+        intr_on(); // Enable interrupts
+        //printf("LBS is the scheduler\n");
+
+        //////////////////
+
+        /////////////////
+        int total_tickets = 0, winner = 0;
+
+        // Calculate total tickets
+        for (p = proc; p < &proc[NPROC]; p++) {
+            if (p->state == RUNNABLE) {
+                total_tickets += p->tickets;
+            }
+        }
+
+        if (total_tickets > 0) {
+            winner = random() % total_tickets;
+
+            // Select the winning process
+            struct proc *winner_process = 0;
+            int ticket_count = 0;
+
+            // Select the winning process
+            for (p = proc; p < &proc[NPROC]; p++) {
+                if (p->state == RUNNABLE) {
+                    ticket_count += p->tickets;
+
+                    if (ticket_count > winner) {
+                        // Check if we found a winner or if it's a tie
+                        if (winner_process == 0 || 
+                            p->tickets > winner_process->tickets || 
+                            (p->tickets == winner_process->tickets && p->arrival_time < winner_process->arrival_time)) {
+                            
+                            winner_process = p; // Update the winner
+                        }
+                    }
+                }
+            }
+
+            // If a winner was found, proceed with context switch
+            if (winner_process != 0) {
+                acquire(&winner_process->lock);
+                if (winner_process->state == RUNNABLE) {
+                    winner_process->state = RUNNING;
+                    c->proc = winner_process;
+                    swtch(&c->context, &winner_process->context);
+                    c->proc = 0;
+                    release(&winner_process->lock); // Release lock after context switch
+                } else {
+                    release(&winner_process->lock); // Release lock if not runnable
+                }
+            }
+        }
+        //yield();
+    }
+#endif // LBS
+
+#ifdef MLFQ // Multilevel Feedback Queue Scheduling
+printf("mlfq\n");
+ int ticks_since_boost = 0; // Initialize outside the loop to track ticks globally
+for (;;) {
+  intr_on();
+
+  ///////////////////////
+
+  ///////////////////////
+
+  // Time slices for each priority
+  int time_slices[] = {1, 4, 8, 16};
+
+  for (int i = 0; i < NQUEUE; i++) {
+    for (p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if (p->state == RUNNABLE)
-      {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
+      if (p->state == RUNNABLE && p->priority == i) {
         p->state = RUNNING;
         c->proc = p;
+        printf("(%d, %d, %d), \n", p->pid, i + 1, ticks);
         swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
         c->proc = 0;
+
+        p->ticks_used++;
+        if (p->ticks_used >= time_slices[p->priority]) {
+          if (p->priority < NQUEUE - 1) {
+            p->priority++; // Move to lower priority
+          }
+          p->ticks_used = 0; // Reset ticks used
+        }
+        release(&p->lock);
+        break; // Exit inner loop to restart at top queue
       }
       release(&p->lock);
     }
+    if (c->proc) break; // Exit outer loop if a process is running
+  }
+
+  // Boosting after 48 ticks
+  ticks_since_boost++;
+  if (ticks_since_boost >= 48) {
+    for (p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if (p->state == RUNNABLE) {
+        p->priority = 0; // Boost to highest priority
+      }
+      release(&p->lock);
+    }
+    ticks_since_boost = 0; // Reset boost counter
+  }
+}
+
+#endif // MLFQ
+
+  for(;;)
+  {
+    intr_on();
+
+    ///////////////////////
+     // Alarm check
+    
+    ////////////////////////
+      // Default round-robin scheduler
+    for (p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if (p->state == RUNNABLE) {
+          p->state = RUNNING;
+          c->proc = p;
+          swtch(&c->context, &p->context);
+          c->proc = 0;
+        }
+        release(&p->lock);
+      }
   }
 }
 

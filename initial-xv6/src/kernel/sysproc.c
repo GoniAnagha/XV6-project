@@ -5,6 +5,9 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include"syscall.h"
+
+extern int syscall_counts[32];
 
 uint64
 sys_exit(void)
@@ -108,3 +111,74 @@ sys_waitx(void)
     return -1;
   return ret;
 }
+
+///////////////////////
+uint64 
+sys_settickets(void) {
+    int number;
+    argint(0, &number);
+    myproc()->tickets = number; // Set the number of tickets for the current process
+    return number;
+}
+
+uint64 
+sys_getSysCount(void) {
+    int mask;
+    argint(0, &mask);
+    // Return the count of the specified syscall
+    int syscall_number = -1;
+    for (int i = 0; i < 32; i++) {
+        if (mask & (1 << i)) {
+            syscall_number = i;  // Found the syscall number
+            break;
+        }
+    }
+
+    // Check if a valid syscall number was found
+    if (syscall_number == -1) {
+        return -1;  // No valid syscall found in the mask
+    }
+    return syscall_counts[syscall_number];
+}
+
+uint64 
+sys_sigalarm(void) {
+    int interval;
+    uint64 handler;
+
+    // Fetch the arguments
+    argint(0, &interval);
+    argaddr(1, &handler);
+
+    struct proc *p = myproc();
+
+    // Set the alarm state
+    p->alarm_interval = interval;
+    p->alarm_handler = handler;
+    p->alarm_state = 1; // Enable the alarm
+
+    return 0;
+}
+
+
+uint64 
+sys_sigreturn(void) {
+    struct proc *p = myproc();
+
+    // Reset the alarm state
+    // p->alarm_handler = 0;
+    // p->alarm_interval = 0;
+    // p->ticks = 0;
+    // p->alarm_state = 0; // Disable the alarm
+
+    // // Restore the saved context
+    // // Assuming you have saved context in p->saved_context (you need to save it when switching)
+    // p->context = p->saved_context;
+    memmove(p->trapframe, p->alarm_tf, PGSIZE);
+    kfree(p->alarm_tf);
+    p->handle_permission=1;
+    return p->trapframe->a0;
+}
+
+
+//////////////////////

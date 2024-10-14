@@ -7,6 +7,28 @@
 #include "syscall.h"
 #include "defs.h"
 
+// uint syscalls_count[31];
+
+// // Reset syscall counts
+// void resetSysCount() 
+// {
+//     for(int i = 0; i < 31; i++) {
+//         syscalls_count[i] = 0;
+//     }
+// }
+
+
+// // Increment syscall count
+// void incrementSysCount(int syscall_num) 
+// {
+//     if (syscall_num >= 0 && syscall_num < 31) 
+//     {
+//         syscalls_count[syscall_num]++;
+//     }
+// }
+
+int syscall_counts[32] = {0};
+
 // Fetch the uint64 at addr from the current process.
 int
 fetchaddr(uint64 addr, uint64 *ip)
@@ -102,7 +124,10 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_waitx(void);
-
+extern uint64 sys_settickets(void);
+extern uint64 sys_getSysCount(void);
+extern uint64 sys_sigalarm(void);
+extern uint64 sys_sigreturn(void);
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
@@ -128,6 +153,10 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_waitx]   sys_waitx,
+[SYS_settickets]    sys_settickets,
+[SYS_getSysCount] sys_getSysCount,
+[SYS_sigalarm]     sys_sigalarm, 
+[SYS_sigreturn] sys_sigreturn,
 };
 
 void
@@ -141,6 +170,10 @@ syscall(void)
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
     p->trapframe->a0 = syscalls[num]();
+    // incrementSysCount(num);
+    if (num >= 0 && num < 32) {
+        syscall_counts[num]++;  // Increment the global count for the syscall
+    }
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);
