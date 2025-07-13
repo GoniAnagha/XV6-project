@@ -101,21 +101,6 @@ This repository contains modifications and enhancements to the XV6 Operating Sys
 - Round-robin within lowest queue (Q3).
 - `procdump()` modified to help debugging.
 
----
-
-## Performance Comparison
-
-| Scheduler      | Avg Wait Time | Avg Run Time |
-|----------------|----------------|----------------|
-| Round Robin    | X ms           | Y ms           |
-| LBS            | X ms           | Y ms           |
-| MLFQ           | **Least**      | **Least**      |
-
-**Conclusion:**  
-MLFQ consistently provides better fairness and turnaround time due to dynamic queue reassignment and boosting.
-
----
-
 ## Design Considerations
 
 ### ➤ Arrival Time in LBS:
