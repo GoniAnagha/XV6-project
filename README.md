@@ -8,7 +8,7 @@ This repository contains modifications and enhancements to the XV6 Operating Sys
 
 ---
 
-## Part 1: System Calls [20 Points]
+## Part 1: System Calls
 
 ### 1.`syscount` - Count System Call Usage
 
@@ -51,7 +51,7 @@ This repository contains modifications and enhancements to the XV6 Operating Sys
 
 ---
 
-## Part 2: Scheduling [40 Points]
+## Part 2: Scheduling 
 
 ### 1. Lottery Based Scheduling (LBS)
 
@@ -147,9 +147,9 @@ Timeline plot visualizes:
 
 ---
 
-## Part 3: Networking [30 Points]
+## Part 3: Networking
 
-### Multiplayer Tic-Tac-Toe (15 Points)
+### Multiplayer Tic-Tac-Toe
 
 **Features:**
 - 3x3 board, two clients (Player X and Player O).
@@ -175,7 +175,7 @@ Timeline plot visualizes:
 
 ---
 
-### TCP Features Over UDP (15 Points)
+### TCP Features Over UDP
 
 **Goals:**
 Simulate basic TCP features using UDP sockets.
