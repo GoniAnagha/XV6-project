@@ -133,20 +133,6 @@ MLFQ consistently provides better fairness and turnaround time due to dynamic qu
 
 ---
 
-## MLFQ Analysis
-
-Timeline plot visualizes:
-- Which queue a process is in over time.
-- Priority boost every 48 ticks.
-- Interactive vs CPU-bound process behavior.
-
-> (Attach generated plot here)  
-> X-axis: Time Elapsed  
-> Y-axis: Queue Level (0 - 3)  
-> Colors: Different processes
-
----
-
 ## Part 3: Networking
 
 ### Multiplayer Tic-Tac-Toe
